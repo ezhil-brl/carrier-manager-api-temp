@@ -75,7 +75,7 @@ export class RulesService {
     return combinedMatches;
   }
 
-  async create(createRuleDto: CreateRuleDto): Promise<Rules[]> {
+  async create(createRuleDto: CreateRuleDto): Promise<number> {
     // Step 1: Check if the organization exists
     const organization = await this.organizationsRepository.findOne({
       where: { id: createRuleDto.organizationId },
@@ -95,21 +95,22 @@ export class RulesService {
       });
     }
 
-    // Step 3: Save the new rules
-    const savedRules: Rules[] = [];
-    for (const rule of createRuleDto.rules) {
-      const newRule = this.rulesRepository.create({
+    // Step 3: Save the new rules in bulk
+    const newRules = createRuleDto.rules.map((rule) =>
+      this.rulesRepository.create({
         ...rule,
         billable_weight: rule.billable_weight
           ? parseFloat(rule.billable_weight as unknown as string)
           : undefined,
         organization_id: createRuleDto.organizationId, // Associate the organization ID with each rule
-      });
-      const savedRule = await this.rulesRepository.save(newRule);
-      savedRules.push(savedRule);
-    }
+      }),
+    );
 
-    return savedRules;
+    // Perform bulk insert
+    const savedRules = await this.rulesRepository.save(newRules);
+
+    // Return the number of rows inserted
+    return savedRules.length;
   }
 
   async findAll(): Promise<Rules[]> {
